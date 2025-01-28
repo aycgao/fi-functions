@@ -1,0 +1,68 @@
+# this file contains 2 functions: 1 to build a bond's cash flow stream as a df, and another to calculate a bond's ytm given this cash flow stream, the current date, and the current price.
+
+
+
+def get_cash_flows(issue_date: str, maturity_date: str, freq: int, coupon_rate: float, fv: int):
+    ''' 
+    Build a pandas df with dates and cash flows received on each date.
+    
+    Args: 
+        issue_date: (str) bond issue date. Eg. "2025-01-26"
+        maturity_date: (str) bond maturity date. Eg. "2025-01-26"
+        freq (int): cash flows per year. Typically 2 for treasuries.
+        coupon_rate (float): bond coupon as a proportion of face value. Eg. put 0.05 for 5% coupon.
+        fv (int): bond's face value.        
+        
+    Returns:
+        (pandas df) a series of cash flows indexed by date. At maturity, the cash flow includes both principal and coupon.
+    '''
+    
+    dates_series = get_coupon_dates(issue_date, maturity_date, freq)
+    cash_flows = pd.DataFrame({'date':dates_series, 'cash flow': coupon_rate / freq * fv})
+    cash_flows.loc[cash_flows.index[-1], 'cash flow'] += fv
+    
+
+    return cash_flows
+
+
+from scipy.optimize import minimize
+
+def calculate_ytm(cash_flow_df, current_date, market_price):
+    """
+    Calculate the yield to maturity (YTM) of a bond given its cash flows and current price.
+
+    Parameters:
+        cash_flow_df (pd.DataFrame): DataFrame with columns 'date' (datetime) and 'cash flow' (float).
+        current_date (str): The current date as a string. Eg. "2025-01-26".
+        market_price (float): The current market price of the bond.
+
+    Returns:
+        float: Yield to maturity (YTM) as an annualized rate (semi-annual compounding).
+    """
+    
+    # Ensure date inputs are in datetime format
+    current_date = pd.to_datetime(current_date)
+    cash_flow_df['date'] = pd.to_datetime(cash_flow_df['date'])
+
+    # Filter out dates from before the current date
+    cash_flow_df = cash_flow_df[cash_flow_df['date'] >= current_date]
+    
+    # Calculate the time to cash flows in years (semi-annual periods)
+    cash_flow_df['TTCF'] = (cash_flow_df['date'] - current_date).dt.days / 365.25 
+
+    # Define the present value function
+    def pv_function(ytm):
+        pv = sum(
+            row['cash flow'] / (1 + ytm / 2) ** (row['TTCF'] * 2)
+            for _, row in cash_flow_df.iterrows()
+        )
+        return (pv - market_price) ** 2  # Return the squared error between PV and actual price
+
+    # Initial guess for the yield 
+    initial_guess = 0.05
+
+    # Minimize the present value function to find the YTM
+    result = minimize(pv_function, initial_guess, bounds=[(0, None)])
+
+    # Return the annualized YTM
+    return result.x[0] if result.success else None
