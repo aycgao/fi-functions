@@ -11,6 +11,7 @@ Functions:
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from typing import Union
 
 def convert_discount_rate_to_discount_factor(discount_rate: float, ttm: float, compounding_freq):
     ''' 
@@ -99,7 +100,7 @@ def rate_factor_converter(input: str, input_df: pd.DataFrame, compounding_freq: 
         output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
         return output
 
-def generate_discount_perfect_system(cash_flow_matrix: pd.DataFrame, prices: pd.DataFrame, freq: int = 2) -> pd.DataFrame:
+def generate_discount_perfect_system(cash_flow_matrix: pd.DataFrame, prices: pd.DataFrame, freq: Union[int, str] = 2) -> pd.DataFrame:
     """
     Generates discount factors/rates with TTM given cash flow matrix, prices (only for perfect system)
 
@@ -107,7 +108,7 @@ def generate_discount_perfect_system(cash_flow_matrix: pd.DataFrame, prices: pd.
         cash_flow_matrix (pd.DataFrame): A DataFrame where rows are indexed by bond IDs,
                                          columns are cash flow dates, and values are cash flows.
         prices (pd.DataFrame): dataframe of the prices of the bonds
-        freq (int): how often we want to get the discount factor (2 would be semiannual)
+        freq (Union[int, str]): how often we want to get the discount factor (2 would be semiannual, continuous for continuously compounded)
         
 
     Returns:
@@ -119,6 +120,6 @@ def generate_discount_perfect_system(cash_flow_matrix: pd.DataFrame, prices: pd.
     z.rename(columns={z.columns[0]: 'Spot Discount Factor'}, inplace = True)
     z.index = cash_flow_matrix.columns
     z['T - t'] = np.arange(1/freq, 1/freq * (len(z) + 1), 1/freq)
-    z['Spot Discount Rates'] = convert_discount_factor_to_discount_rate(z['Spot Discount Factor'], z['T - t'], 2)
+    z['Spot Discount Rates'] = convert_discount_factor_to_discount_rate(z['Spot Discount Factor'], z['T - t'], freq)
 
     return z
