@@ -25,7 +25,7 @@ def convert_discount_rate_to_discount_factor(discount_rate: float, ttm: float, c
     if compounding_freq=='continuous':
         return np.exp(-discount_rate * ttm)
     else:
-        return (1 + discount_rate/compounding_freq)^(-compounding_freq * ttm)
+        return (1 + discount_rate/compounding_freq)**(-compounding_freq * ttm)
 
 def convert_discount_factor_to_discount_rate(discount_factor: float, ttm: float, compounding_freq):
     ''' Given a discount factor, a time to maturity in years, and a compounding frequency, convert the discount factor to an annualized discount rate.
