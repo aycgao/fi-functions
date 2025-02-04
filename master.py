@@ -460,7 +460,7 @@ def find_optimal_theta(cash_flow_matrix, quote_date, market_prices, initial_thet
 
 def perform_pca(yield_data: pd.DataFrame, n_components: 2):
     """
-    PCA Function from GPT
+    GPT WRITTEN FUNCTION
     Perform PCA on the yield curve data.
 
     Parameters:
@@ -488,7 +488,7 @@ def perform_pca(yield_data: pd.DataFrame, n_components: 2):
     return explained_variance, loadings
 
 # ====================================
-# Section: PCA
+# Section: Duration
 # ====================================
 
 def asset_duration(cash_flow_df, current_date_str):
