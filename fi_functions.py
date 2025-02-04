@@ -7,6 +7,7 @@ Functions:
 - ddur_hedge_ratio: gets hedge ratio between two assets based on dollar duration
 - build_factors: builds level, slope, and curvature yield-curve factors from time series yields (1, 2, 5, 7, 10, 20, 30)
 - mvts_regression: time series regression that reports alpha, beta, R^2
+- convert_to_ttm: converts dates to ttm
 """
 
 from datetime import datetime
@@ -38,6 +39,7 @@ def get_coupon_dates(issue_date: str, maturity_date: str, freq: int) -> Series:
     dates = pd.DataFrame(data=dates[dates > pd.to_datetime(issue_date)])
     
     return dates[0]
+
 
 def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: float, freq: int, fv: float = 100, exact: bool = False) -> float:
     """
@@ -184,6 +186,23 @@ def mvts_regression(y_df: pd.DataFrame, x_df: pd.DataFrame, report: list[str] = 
         metrics_df.loc['R-squared'] = model.rsquared
 
     return coef_df, metrics_df
+
+def convert_to_ttm(maturity_dates: pd.Series, present_date: str) -> pd.Series:
+    """
+    Converts maturity dates into time to maturity (in years) given a present date.
+
+    Args:
+        maturity_dates (pd.Series): maturity dates 
+        present_date (str): current date as a string (format: YYYY-MM-DD) or a datetime
+
+    Returns:
+        pd.Series: Time to maturity in years.
+    """
+    maturity_dates = pd.to_datetime(maturity_dates)
+    present_date = pd.to_datetime(present_date)
+
+    ttm = (maturity_dates - present_date).dt.days / 365.25
+    return ttm
 
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
