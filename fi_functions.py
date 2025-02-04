@@ -119,7 +119,7 @@ def closed_form_duration(freq: int, ytm: float, coupon_rate: float, time_till_ma
 
 def ddur_hedge_ratio(n_i: float, ddur_i: float, ddur_j: float) -> float:
     """
-    Provides the duration of a fixed rate bond taking in frequency of coupon payment, ytm, coupon rate, and time till maturity
+    Calculates the quantity of asset j required to hedge duration of asset i.
 
     Args:
         n_i (float): number of contracts for asset i
