@@ -2,10 +2,11 @@ from datetime import datetime
 from pandas.core.series import Series
 import pandas as pd
 import numpy as np
-from typing import Dict, Union
+from typing import Any, Dict, Tuple, Union
 from scipy.optimize import minimize
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+import statsmodels.api as sm
 
 # ====================================
 # Section: Rate Factor Conversions
@@ -454,40 +455,6 @@ def find_optimal_theta(cash_flow_matrix, quote_date, market_prices, initial_thet
     return result
 
 # ====================================
-# Section: PCA
-# ====================================
-
-
-def perform_pca(yield_data: pd.DataFrame, n_components: 2):
-    """
-    GPT WRITTEN FUNCTION
-    Perform PCA on the yield curve data.
-
-    Parameters:
-    yield_data (pd.DataFrame): DataFrame containing yield curve data (excluding date column).
-    n_components (int): Number of principal components to retain.
-
-    Returns:
-    tuple: Explained variance ratio and loadings of the first two PCA factors.
-    """
-
-    # Standardize the data
-    scaler = StandardScaler()
-    standardized_data = scaler.fit_transform(yield_data)
-
-    # Perform PCA
-    pca = PCA(n_components=n_components)
-    pca.fit(standardized_data)
-
-    # Extract explained variance ratio
-    explained_variance = pca.explained_variance_ratio_
-
-    # Extract PCA loadings
-    loadings = pca.components_
-
-    return explained_variance, loadings
-
-# ====================================
 # Section: Pricing
 # ====================================
 
@@ -643,6 +610,105 @@ def modified_duration(duration, yld, freq=2):
     float: The modified duration.
     """
     return duration / (1 + yld / freq)
+
+# ====================================
+# Section: Yield Factors
+# ====================================
+
+def build_factors(yields: pd.DataFrame, keep_columns: list[str] = ['Level Factor', 'Slope Factor', 'Curvature Factor']) -> pd.DataFrame:
+    """
+    Provides common yield curve factors in time series (value for factors for each time t) where:
+    - level is an average of the yields
+    - slope is the 30 year yield minus the 1 year yield
+    - curvature is (- 1 year yield + 2 * 10 year yield - 30 year yield)
+    
+    Args:
+        yields (pd.DataFrame): pandas dataframe of yields in time series (1, 2, 5, 7, 10, 20, 30)
+        keep_columns (list[str]): indicates which factors to keep
+
+    Returns:
+        pd.DataFrame: time series of factors chosen
+    """
+    y = yields.copy()
+    y['Level Factor'] = 1/7 * y.sum(axis = 1)
+    y['Slope Factor'] = y.iloc[:, 6] - y.iloc[:, 0]
+    y['Curvature Factor'] = - y.iloc[:, 0] + 2 * y.iloc[:, 4] - y.iloc[:, 6]
+    return y[keep_columns]
+
+# ====================================
+# Tools
+# ====================================
+
+def mvts_regression(y_df: pd.DataFrame, x_df: pd.DataFrame, report: list[str] = ['Coef', 'R_squared'], const: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Performs multivariate regression
+    
+    Args:
+        y_df (pd.DataFrame): pandas dataframe of single column of y values
+        x_df (pd.DataFrame): pandas dataframe of single or multiple columns of x values
+        report (list[str]): list of things to report (coef, R^2)
+        const (bool): to include constant or not
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]: results of regression, a coef df and metrics df
+    """
+    # Make sure dates/indices are merged
+    y_df, x_df = y_df.align(x_df, axis=0)
+
+    # Add const if necessary
+    y = y_df
+    if const:
+        X = sm.add_constant(x_df)
+    else:
+        X = x_df
+    
+    # Model
+    model = sm.OLS(y, X).fit()
+
+    # Add coefficients
+    if 'Coef' in report:
+        coefficients = model.params
+        coef_df = pd.DataFrame(coefficients, columns=['Coefficient'])
+    else:
+        coef_df = pd.DataFrame(columns=['Coefficient'])
+    
+    # Add metrics
+    metrics_df = pd.DataFrame(columns=['Values'])
+
+    if 'R_squared' in report:
+        metrics_df.loc['R-squared'] = model.rsquared
+
+    return coef_df, metrics_df
+
+
+def perform_pca(yield_data: pd.DataFrame, n_components: 2):
+    """
+    GPT WRITTEN FUNCTION
+    Perform PCA on the yield curve data.
+
+    Parameters:
+    yield_data (pd.DataFrame): DataFrame containing yield curve data (excluding date column).
+    n_components (int): Number of principal components to retain.
+
+    Returns:
+    tuple: Explained variance ratio and loadings of the first two PCA factors.
+    """
+
+    # Standardize the data
+    scaler = StandardScaler()
+    standardized_data = scaler.fit_transform(yield_data)
+
+    # Perform PCA
+    pca = PCA(n_components=n_components)
+    pca.fit(standardized_data)
+
+    # Extract explained variance ratio
+    explained_variance = pca.explained_variance_ratio_
+
+    # Extract PCA loadings
+    loadings = pca.components_
+
+    return explained_variance, loadings
 
 # ====================================
 # Appendix: Column Names from CRSP
