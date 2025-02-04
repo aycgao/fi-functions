@@ -41,9 +41,9 @@ def get_coupon_dates(issue_date: str, maturity_date: str, freq: int) -> Series:
     return dates[0]
 
 
-def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: float, freq: int, fv: float = 100, exact: bool = False) -> float:
+def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: float, freq: int, fv: float = 100, exact: bool = False, return_dirty: bool = True) -> float:
     """
-    Prices a bond (with or without coupon) given a YTM, quote date, maturity date, and coupon payment frequency
+    Prices a bond (with or without coupon) given a YTM, quote date, maturity date, and coupon payment frequency, returning either dirty or clean price
 
     Args:
         ytm (float): yield to maturity in percentage form.
@@ -52,6 +52,7 @@ def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: flo
         coupon_rate (float): percentage rate for coupon
         freq (int): how many times a year the bond pays coupons.
         fv (float): face value of bond (default 100)
+        return_dirty (bool): dirty or clean price (default dirty, true)
 
     Returns:
         float: price of bond
@@ -89,6 +90,10 @@ def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: flo
     if tau_left > 0:
         pv += (coupon_rate * fv) 
         pv /= (1 + ytm) ** tau_left
+    
+    if not return_dirty:
+        accrued_interest = coupon_rate * fv * tau_left  # Accrued Interest Calculation
+        pv = pv - accrued_interest
 
     return pv
 
