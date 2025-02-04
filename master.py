@@ -488,8 +488,102 @@ def perform_pca(yield_data: pd.DataFrame, n_components: 2):
     return explained_variance, loadings
 
 # ====================================
+# Section: Pricing
+# ====================================
+
+def price_bond(ytm: float, quote_date: str, maturity_date: str, coupon_rate: float, freq: int, fv: float = 100, exact: bool = False, return_dirty: bool = True) -> float:
+    """
+    Prices a bond (with or without coupon) given a YTM, quote date, maturity date, and coupon payment frequency, returning either dirty or clean price
+
+    Args:
+        ytm (float): yield to maturity in percentage form.
+        quote_date (str): string for quote date. "2025-01-26"  # Example date string
+        maturity_date (str): string for date of maturity. "2025-01-26"  # Example date string
+        coupon_rate (float): percentage rate for coupon
+        freq (int): how many times a year the bond pays coupons.
+        fv (float): face value of bond (default 100)
+        return_dirty (bool): dirty or clean price (default dirty, true)
+
+    Returns:
+        float: price of bond
+    """
+    quote_date = datetime.strptime(quote_date, "%Y-%m-%d").date()
+    maturity_date = datetime.strptime(maturity_date, "%Y-%m-%d").date()
+    coupon_rate = (coupon_rate/freq)/100
+    ytm = (ytm/freq)/100
+    ttm = abs((maturity_date - quote_date).days)/365.25
+
+    # Here, we're checking time till maturity
+    # If we are exactly on a issue date or after payment of coupon, no need to approximate
+    if exact:
+        tau_left = 0
+        step = 1 / freq
+        ttm = round(ttm / step) * step
+        tau = round(freq * ttm)
+    else:
+        decimal_portion = ttm % 1
+        # If the remainder is less than a day, round it out
+        if (1 - decimal_portion) * 365.25 < 1 or decimal_portion * 365.25 < 1:
+            ttm = round(ttm)
+            
+        # Getting remaining value to make a dirty price
+        tau_left = freq * (ttm % (1/freq))
+        tau = round(freq * ttm - tau_left)
+    
+    
+    pv = 0
+    for i in range(1,tau):
+        pv += (coupon_rate) / (1+ytm)**i
+
+    pv += (1+coupon_rate)/(1+ytm)**tau
+    pv *= fv
+    if tau_left > 0:
+        pv += (coupon_rate * fv) 
+        pv /= (1 + ytm) ** tau_left
+    
+    if not return_dirty:
+        accrued_interest = coupon_rate * fv * tau_left  # Accrued Interest Calculation
+        pv = pv - accrued_interest
+
+    return pv
+
+# ====================================
 # Section: Duration
 # ====================================
+
+def closed_form_duration(freq: int, ytm: float, coupon_rate: float, time_till_mat: float) -> float:
+    """
+    Provides the duration of a fixed rate bond taking in frequency of coupon payment, ytm, coupon rate, and time till maturity
+
+    Args:
+        freq (int): how many times a year the bond pays coupons.
+        ytm (float): yield to maturity in percentage form.
+        coupon_rate (float): percentage rate for coupon
+        time_till_mat (float): time till maturity of the bond in years
+
+    Returns:
+        float: duration of the bond (Macaulay Duration)
+    """
+    y_t = (ytm/100) / freq
+    c_t = (coupon_rate/100) / freq
+    t_t = freq * time_till_mat
+
+    duration = 1 / freq * ((1 + y_t) / y_t - (1 + y_t + t_t * (c_t - y_t)) / (c_t * ((1 + y_t) ** t_t - 1) + y_t))
+    return duration
+
+def ddur_hedge_ratio(n_i: float, ddur_i: float, ddur_j: float) -> float:
+    """
+    Calculates the quantity of asset j required to hedge duration of asset i.
+
+    Args:
+        n_i (float): number of contracts for asset i
+        ddur_i (float): dollar duration of asset i
+        ddur_j (float): dollar duration of asset j
+
+    Returns:
+        float: number of contracts needed in asset j to perfectly hedge dollar duration
+    """
+    return - n_i * (ddur_i/ddur_j)
 
 def asset_duration(cash_flow_df, current_date_str):
     """
@@ -535,3 +629,41 @@ def asset_duration(cash_flow_df, current_date_str):
     # Avoid division by zero: if an asset's denominator is 0, its duration becomes NaN.
     duration = numerator / denominator
     return duration
+
+def modified_duration(duration, yld, freq=2):
+    """
+    Calculates the modified duration from the Macaulay duration.
+
+    Parameters:
+    duration (float): The Macaulay duration of the bond.
+    yld (float): The annual yield (as a decimal). For example, 0.05 for 5%.
+    freq (int): The number of compounding periods per year. Default is 1.
+
+    Returns:
+    float: The modified duration.
+    """
+    return duration / (1 + yld / freq)
+
+# ====================================
+# Appendix: Column Names from CRSP
+# ====================================
+
+treasury_columns = {
+    "kytreasno": "Unique Treasury Security Number: Identifier for a given U.S. Treasury security.",
+    "kycrspid": "CRSP's unique security identifier: Links the Treasury security to CRSP's universe.",
+    "caldt": "Calendar Date: The date on which the data record applies.",
+    "tdbid": "Bid Price: The most recent bid (buy) price quoted for the Treasury security.",
+    "tdask": "Ask Price: The most recent ask (sell) price quoted for the Treasury security.",
+    "tdnomprc": "Nominal Price: The quoted price of the security before adjustments (e.g., accrued interest).",
+    "tdnomprc_flg": "Nominal Price Flag: Indicator specifying if the nominal price is adjusted, estimated, or subject to reporting rules.",
+    "tdsourcr": "Data Source Code: Indicates the source or channel from which the Treasury data were obtained.",
+    "tdaccint": "Accrued Interest: The interest accumulated on the Treasury security since the last coupon payment.",
+    "tdretnua": "Return Factor/Index: Used in constructing total return measures for the security.",
+    "tdyld": "Yield: The computed yield (typically yield-to-maturity) for the Treasury security.",
+    "tdduratn": "Duration: A measure (in years) of the security’s sensitivity to interest rate changes.",
+    "tdpubout": "Public Outstanding Amount: The portion of the issue held by the public.",
+    "tdtotout": "Total Outstanding Amount: The total amount issued that remains outstanding.",
+    "tdpdint": "Periodic Interest Payment: The coupon payment amount paid periodically.",
+    "tdidxratio": "Index Ratio: A ratio used to adjust prices or returns for indexing purposes (e.g., inflation adjustments).",
+    "tdidxratio_flg": "Index Ratio Flag: Indicator flag specifying whether the index ratio is available, estimated, or adjusted."
+}
