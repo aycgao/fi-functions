@@ -424,8 +424,6 @@ def compute_loss(cash_flow_matrix, theta, quote_date, market_prices, extended):
     mse = np.mean((market_prices - price_predictions) ** 2)
     return mse
 
-from scipy.optimize import minimize
-
 def find_optimal_theta(cash_flow_matrix, quote_date, market_prices, initial_theta, extended = False):
     """
     Finds the optimal theta that minimizes the loss function.
@@ -489,3 +487,51 @@ def perform_pca(yield_data: pd.DataFrame, n_components: 2):
 
     return explained_variance, loadings
 
+# ====================================
+# Section: PCA
+# ====================================
+
+def asset_duration(cash_flow_df, current_date_str):
+    """
+    GPT WRITTEN FUNCTION
+    Computes the (cash flow weighted average) duration of each asset.
+    
+    Parameters:
+      cash_flow_df : pd.DataFrame
+          A DataFrame where each row corresponds to an asset and 
+          each column corresponds to a cash flow date (as a string or datetime),
+          with the cell values being the cash flow amounts.
+      current_date_str : str
+          A string representing the current date (e.g., '2025-02-04').
+    
+    Returns:
+      pd.Series
+          A Series with the asset index and the corresponding duration (in years).
+          If an asset has no future cash flows (or the sum is 0) its duration will be NaN.
+    """
+    # Convert the current date and the cash flow dates to datetime objects.
+    current_date = pd.to_datetime(current_date_str)
+    cf_dates = pd.to_datetime(cash_flow_df.columns)
+    
+    # Only consider future cash flows (dates >= current_date)
+    future_mask = cf_dates >= current_date
+    if not future_mask.any():
+        # If no cash flows are in the future, return NaN for all assets.
+        return pd.Series(np.nan, index=cash_flow_df.index)
+    
+    # Filter the dataframe to only include future cash flows.
+    cf_future = cash_flow_df.loc[:, future_mask]
+    
+    # Compute the time (in years) from current_date to each cash flow date.
+    # Here we use days/365.25 to approximate the year fraction.
+    time_diffs = (cf_dates[future_mask] - current_date).days / 365.25
+    
+    # Compute the weighted average time:
+    #   duration = sum(cash_flow * time) / sum(cash_flow)
+    weighted_times = cf_future.multiply(time_diffs, axis=1)
+    numerator = weighted_times.sum(axis=1)
+    denominator = cf_future.sum(axis=1)
+    
+    # Avoid division by zero: if an asset's denominator is 0, its duration becomes NaN.
+    duration = numerator / denominator
+    return duration
