@@ -75,29 +75,33 @@ def rate_factor_converter(input: str, input_df: pd.DataFrame, compounding_freq: 
         w = spot_forward_factors_conversion(output)
         output['Forward Discount Factors'] = w['Forward Discount Factors']
         output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
-        return output
+        output['Forward Discount Rates'] = output['Forward Discount Rates'].shift(-1)
+        output['Forward Discount Factors'] = output['Forward Discount Factors'].shift(-1)
     
-    if input == 'DF':
+    elif input == 'DF':
         output = output.rename(columns = {'Metric': 'Discount Factors'})
         output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
         w = spot_forward_factors_conversion(output)
         output['Forward Discount Factors'] = w['Forward Discount Factors']
         output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
-        return output
+        output['Forward Discount Rates'] = output['Forward Discount Rates'].shift(-1)
+        output['Forward Discount Factors'] = output['Forward Discount Factors'].shift(-1)
 
-    if input == 'FR':
+    elif input == 'FR':
         output = output.rename(columns = {'Metric': 'Forward Discount Rates'})
         output['Forward Discount Factors'] = convert_discount_rate_to_discount_factor(output['Forward Discount Rates'], forward_time_length, compounding_freq)
         output['Discount Factors'] = output['Forward Discount Factors'].cumprod()
         output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
-        return output
 
-    if input == 'FF':
+    elif input == 'FF':
         output = output.rename(columns = {'Metric': 'Forward Discount Factors'})
         output['Discount Factors'] = output['Forward Discount Factors'].cumprod()
         output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
         output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
-        return output
+    
+    return output
+    
+
 
 # ====================================
 # Section: Cash Flow Matrix
