@@ -54,14 +54,15 @@ def spot_forward_factors_conversion(df: pd.DataFrame) -> pd.DataFrame:
     df.iloc[0, df.columns.get_loc('Forward Discount Factors')] = df.iloc[0, df.columns.get_loc('Discount Factors')]
     return df
 
-def rate_factor_converter(input: str, input_df: pd.DataFrame, compounding_freq: int = 2, forward_time_length: int = 0.5) -> pd.DataFrame:
+def rate_factor_converter(input: str, input_df: pd.DataFrame, dr_compounding_freq: int = 2, fr_compounding_freq: int = 2, forward_time_length: int = 0.5) -> pd.DataFrame:
     ''' 
     Given any of discount rates, discount factors, forward rates, forward factors, can produce information on the other three in a dataframe
 
     Params:
         input (str): string of which input metrics is given (DR: discount rate, DF: discount factor, FR: forward rate, FF: forward factor)
         input_df (pd.DataFrame): a dataframe with any of the four metrics listed, and the times at which this is occurring (names of columns must be 'Metric', 'Time')
-        compounding_freq (int): the number of compounding periods in a year. "continuous" if continuous compounding. 
+        dr_compounding_freq (int): the number of compounding periods in a year for the discount rate. "continuous" if continuous compounding. 
+        fr_compounding_freq (int): the number of compounding periods in a year for the forward rate. "continuous" if continuous compounding. 
         forward_time_lenght (int): lenght of time for forward rate (T2 - T1)
     
     Returns:
@@ -71,33 +72,33 @@ def rate_factor_converter(input: str, input_df: pd.DataFrame, compounding_freq: 
 
     if input == 'DR':
         output = output.rename(columns = {'Metric': 'Discount Rates'})
-        output['Discount Factors'] = convert_discount_rate_to_discount_factor(output['Discount Rates'], output['Time'], compounding_freq)
+        output['Discount Factors'] = convert_discount_rate_to_discount_factor(output['Discount Rates'], output['Time'], dr_compounding_freq)
         w = spot_forward_factors_conversion(output)
         output['Forward Discount Factors'] = w['Forward Discount Factors']
-        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
+        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, fr_compounding_freq)
         output['Forward Discount Rates'] = output['Forward Discount Rates'].shift(-1)
         output['Forward Discount Factors'] = output['Forward Discount Factors'].shift(-1)
     
     elif input == 'DF':
         output = output.rename(columns = {'Metric': 'Discount Factors'})
-        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
+        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], dr_compounding_freq)
         w = spot_forward_factors_conversion(output)
         output['Forward Discount Factors'] = w['Forward Discount Factors']
-        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
+        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, fr_compounding_freq)
         output['Forward Discount Rates'] = output['Forward Discount Rates'].shift(-1)
         output['Forward Discount Factors'] = output['Forward Discount Factors'].shift(-1)
 
     elif input == 'FR':
         output = output.rename(columns = {'Metric': 'Forward Discount Rates'})
-        output['Forward Discount Factors'] = convert_discount_rate_to_discount_factor(output['Forward Discount Rates'], forward_time_length, compounding_freq)
+        output['Forward Discount Factors'] = convert_discount_rate_to_discount_factor(output['Forward Discount Rates'], forward_time_length, fr_compounding_freq)
         output['Discount Factors'] = output['Forward Discount Factors'].cumprod()
-        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
+        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], dr_compounding_freq)
 
     elif input == 'FF':
         output = output.rename(columns = {'Metric': 'Forward Discount Factors'})
         output['Discount Factors'] = output['Forward Discount Factors'].cumprod()
-        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, compounding_freq)
-        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], compounding_freq)
+        output['Forward Discount Rates'] = convert_discount_factor_to_discount_rate(output['Forward Discount Factors'], forward_time_length, fr_compounding_freq)
+        output['Discount Rates'] = convert_discount_factor_to_discount_rate(output['Discount Factors'], output['Time'], dr_compounding_freq)
     
     return output
     
